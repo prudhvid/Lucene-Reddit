@@ -1,13 +1,10 @@
 package com.lucenetutorial.apps;
 
 
-import java.util.Random;
-import javax.print.attribute.standard.Compression;
 import org.apache.lucene.codecs.FilterCodec;
 import org.apache.lucene.codecs.StoredFieldsFormat;
 import org.apache.lucene.codecs.compressing.CompressingStoredFieldsFormat;
 import org.apache.lucene.codecs.compressing.CompressionMode;
-import org.apache.lucene.codecs.lucene50.Lucene50CompoundFormat;
 import org.apache.lucene.codecs.lucene50.Lucene50StoredFieldsFormat;
 import org.apache.lucene.codecs.lucene54.Lucene54Codec;
 
@@ -22,9 +19,6 @@ import org.apache.lucene.codecs.lucene54.Lucene54Codec;
  * @author prudhvi
  */
 public class CompressingCodec extends FilterCodec{
-    
-
- private final CompressingStoredFieldsFormat storedFieldsFormat;
 
  /**
  * @see
@@ -33,22 +27,25 @@ CompressingStoredFieldsIndex)
  */
  public CompressingCodec() {
 
-    super("Compressing", new Lucene54Codec(Lucene50StoredFieldsFormat.Mode.BEST_COMPRESSION));
-    
-//    this.storedFieldsFormat = new CompressingStoredFieldsFormat(compressionMode,chunkSize, storedFieldsIndexFormat);
-    this.storedFieldsFormat=new CompressingStoredFieldsFormat
-        (Compression.DEFLATE.getName(), CompressionMode.HIGH_COMPRESSION, 100000, 1000, 100000);
-     }
+    super("CompressingCodec", new Lucene54Codec(Lucene50StoredFieldsFormat.Mode.BEST_COMPRESSION));
+ }
 
-// public CompressingCodec() {
-//
-//this(CompressionMode.FAST, 1 << 14, CompressingStoredFieldsIndex.MEMORY_CHUNK);
-// }
 
  @Override
  public StoredFieldsFormat storedFieldsFormat() {
     
-    return storedFieldsFormat;
+    return new MyStoredFieldFormat();
  }
     
+}
+
+
+class MyStoredFieldFormat extends CompressingStoredFieldsFormat {
+
+    public MyStoredFieldFormat(){
+        super("MyStoredFieldFormat", CompressionMode.HIGH_COMPRESSION, 1<<28, 1<<28, 1<<27);
+// super(null, CompressionMode.FAST, chunkSize, maxDocsPerChunk, blockSize)
+//For a chunk size of chunkSize bytes, this StoredFieldsFormat does not support documents larger than (2^31 - chunkSize) bytes.
+        
+    }
 }

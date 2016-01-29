@@ -15,6 +15,15 @@ import org.json.simple.JSONObject;
 
 import java.io.*;
 import java.util.List;
+import org.apache.commons.compress.compressors.CompressorException;
+import org.apache.commons.compress.compressors.CompressorInputStream;
+import org.apache.commons.compress.compressors.CompressorStreamFactory;
+import org.apache.lucene.codecs.FilterCodec;
+import org.apache.lucene.codecs.StoredFieldsFormat;
+import org.apache.lucene.codecs.compressing.CompressingStoredFieldsFormat;
+import org.apache.lucene.codecs.compressing.CompressionMode;
+import org.apache.lucene.codecs.lucene50.Lucene50StoredFieldsFormat;
+import org.apache.lucene.codecs.lucene54.Lucene54Codec;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
 
@@ -48,8 +57,8 @@ public class JsonIndexWriter {
         try {
 
             String sCurrentLine;
-
-            br = new BufferedReader(new FileReader(jsonFilePath));
+            br=getBufferedReaderForCompressedFile(jsonFilePath);
+//            br = new BufferedReader(new FileReader(jsonFilePath));
 
             while ((sCurrentLine = br.readLine()) != null) {
 //                System.out.println("Record:\t" + sCurrentLine);
@@ -68,6 +77,8 @@ public class JsonIndexWriter {
 
         } catch (IOException e) {
             e.printStackTrace();
+        } catch (CompressorException ex) {
+            ex.printStackTrace();
         } finally {
             try {
                 if (br != null)br.close();
@@ -77,7 +88,13 @@ public class JsonIndexWriter {
         }
         finish();
     }
-    
+    public static BufferedReader getBufferedReaderForCompressedFile(String fileIn) throws FileNotFoundException, CompressorException {
+        FileInputStream fin = new FileInputStream(fileIn);
+        BufferedInputStream bis = new BufferedInputStream(fin);
+        CompressorInputStream input = new CompressorStreamFactory().createCompressorInputStream(bis);
+        BufferedReader br2 = new BufferedReader(new InputStreamReader(input));
+        return br2;
+    }   
     public  JSONArray readJsonFile() {
 
         BufferedReader br = null;
@@ -86,8 +103,8 @@ public class JsonIndexWriter {
         try {
 
             String sCurrentLine;
-
-            br = new BufferedReader(new FileReader(jsonFilePath));
+            br=getBufferedReaderForCompressedFile(jsonFilePath);
+//            br = new BufferedReader(new FileReader(jsonFilePath));
 
             while ((sCurrentLine = br.readLine()) != null) {
 //                System.out.println("Record:\t" + sCurrentLine);
@@ -106,6 +123,8 @@ public class JsonIndexWriter {
 
         } catch (IOException e) {
             e.printStackTrace();
+        } catch (CompressorException ex) {
+            ex.printStackTrace();
         } finally {
             try {
                 if (br != null)br.close();
@@ -121,9 +140,10 @@ public class JsonIndexWriter {
             Directory dir = FSDirectory.open(new File(indexPath).toPath());
             Analyzer analyzer = new StandardAnalyzer();
             IndexWriterConfig iwc = new IndexWriterConfig( analyzer);
-
+            
             //Always overwrite the directory now changed to append
             iwc.setOpenMode(OpenMode.CREATE_OR_APPEND);
+            iwc.setCodec(new CompressingCodec2());
             indexWriter = new IndexWriter(dir, iwc);
 
             return true;
@@ -181,8 +201,9 @@ public class JsonIndexWriter {
             String id=(String) object.get("id");
             long idLong=Long.valueOf(id, 36);
 //            System.out.println(body);
-            doc.add(new TextField("body", body,Field.Store.YES));
+            doc.add(new TextField("body", body, Field.Store.YES));
             doc.add(new LongField("id", idLong, Field.Store.YES));
+//            doc.add(new StoredField("body_store",CompressionTools.compressString(body)));
             try {
                 indexWriter.addDocument(doc);
             } catch (IOException ex) {
@@ -206,7 +227,9 @@ public class JsonIndexWriter {
             System.err.println("We had a problem closing the index: " + ex.getMessage());
         }
     }
-
+    
+    
+    
     public static void main(String[] args) {
         String indexPath=null,jsonPath=null;
         if(args.length<2){
@@ -219,4 +242,26 @@ public class JsonIndexWriter {
         indexWriter.createIndexFly();
         
     }
+}
+
+
+class CompressingCodec2 extends FilterCodec{
+
+ /**
+ * @see
+CompressingStoredFieldsFormat#CompressingStoredFieldsFormat(CompressionMode, int,
+CompressingStoredFieldsIndex)
+ */
+ public CompressingCodec2() {
+
+    super("CompressingCodec2", new Lucene54Codec(Lucene50StoredFieldsFormat.Mode.BEST_COMPRESSION));
+ }
+
+
+ @Override
+ public StoredFieldsFormat storedFieldsFormat() {
+    
+    return new MyStoredFieldFormat();
+ }
+    
 }
